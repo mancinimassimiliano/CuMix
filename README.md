@@ -13,7 +13,10 @@ This version has been tested on:
 * python 3.8.3
 * cuda 10.2
 
-To install PyTorch, please follow [this](https://pytorch.org/get-started/locally/).
+To install all the dependencies, please run:
+```
+pip install -r requirements.txt
+```
 
 ## Zero-Shot Learning experiments
 For setting up the datasets, please download CUB, AWA1 and SUN from 

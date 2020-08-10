@@ -1,0 +1,15 @@
+certifi==2020.6.20
+joblib @ file:///tmp/build/80754af9/joblib_1594236160679/work
+mkl-fft==1.1.0
+mkl-random==1.1.1
+mkl-service==2.3.0
+numpy @ file:///tmp/build/80754af9/numpy_and_numpy_base_1596233721170/work
+olefile==0.46
+Pillow @ file:///tmp/build/80754af9/pillow_1594307295532/work
+scikit-learn @ file:///tmp/build/80754af9/scikit-learn_1592502866053/work
+scipy @ file:///tmp/build/80754af9/scipy_1592930511789/work
+six==1.15.0
+threadpoolctl @ file:///tmp/tmp9twdgx9k/threadpoolctl-2.1.0-py3-none-any.whl
+torch==1.5.0
+torchvision==0.6.0a0+82fd1c8
+tqdm @ file:///tmp/build/80754af9/tqdm_1596810128862/work
