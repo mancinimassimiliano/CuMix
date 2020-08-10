@@ -1,0 +1,16 @@
+{
+  "epochs": 30,
+  "iters_per_epoch": 100,
+  "mixup_img_w": 0.1,
+  "mixup_feat_w": 3.0,
+  "mixup_step": 10,
+  "mixup_beta": 0.6,
+  "step": 25,
+  "batch_size":96,
+  "domains_per_batch":3,
+  "nesterov":false,
+  "lr":0.001,
+  "lr_net":0.001,
+  "weight_decay":0.0001,
+  "backbone":"resnet18"
+}

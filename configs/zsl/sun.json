@@ -1,0 +1,12 @@
+{
+  "epochs": 60,
+  "mixup_feat_w": 10.0,
+  "mixup_step": 30,
+  "mixup_beta": 0.8,
+  "step": 40,
+  "batch_size":128,
+  "nesterov":true,
+  "lr":0.1,
+  "weight_decay":0.001,
+  "backbone":"none"
+}
