@@ -19,12 +19,14 @@ pip install -r requirements.txt
 ```
 
 ## Zero-Shot Learning experiments
-For setting up the datasets, please download CUB, AWA1 and SUN from 
+For setting up the datasets, please download CUB, AWA1, and SUN from 
 [here](http://datasets.d2.mpi-inf.mpg.de/xian/xlsa17.zip) 
 and FLO from [here](http://datasets.d2.mpi-inf.mpg.de/xian/cvpr18xian.zip) and unpack them. 
 To download them, 
 you can also use the script ```download_zsl.sh```:
-```./scripts/download_zsl.sh $ZSL_DESIRED_ROOT```
+```
+./scripts/download_zsl.sh $ZSL_DESIRED_ROOT
+```
 
 For reproducing the results, just run the experiments given the corresponding dataset configuration. 
 For instance, for CUB: 
@@ -41,7 +43,9 @@ please DO NOT USE the unseen classes, but the splits given with the datasets.
 For setting up the dataset, please download the official train/val/test splits of PACS from 
 [here](https://drive.google.com/open?id=0B6x7gtvErXgfUU1WcGY5SzdwZVk), unpacking them. To download them, 
 you can also use the script ```download_pacs.sh```:
-```./scripts/download_pacs.sh $PACS_DESIRED_ROOT```
+```
+./scripts/download_pacs.sh $PACS_DESIRED_ROOT
+```
 
 For reproducing the results, just run the experiments given the corresponding dataset configuration. 
 For instance, for testing with _cartoon_ as target:  
@@ -55,7 +59,9 @@ For setting up the datasets, please download DomainNet from
 [here](http://ai.bu.edu/M3SDA/), using the cleaned version. In the ```data``` folder, you can find the class splits 
 (that we defined) and the embeddings used [here](https://www.sciencedirect.com/science/article/pii/S1077314220300928) . To download the data and set up the folder, 
 you can also use the script ```download_dnet.sh```:
-```./scripts/download_dnet.sh $DNET_DESIRED_ROOT```
+```
+./scripts/download_dnet.sh $DNET_DESIRED_ROOT
+```
 
 For reproducing the results, just run the experiments given the corresponding dataset configuration.
 For instance, for testing with _painting_ as target:  
