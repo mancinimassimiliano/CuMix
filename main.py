@@ -158,10 +158,10 @@ for r in range(args.runs):
             acc_sources = 0.
             for v in val_datasets:
                 acc_sources += test(method, v, device, zsl=False)
-                acc_sources /= len(sources)
-                if acc_sources > top_sources:
-                    top_sources = acc_sources
-                    temp_results = accuracy
+            acc_sources /= len(sources)
+            if acc_sources > top_sources:
+                top_sources = acc_sources
+                temp_results = accuracy
         else:
             temp_results = accuracy
 
