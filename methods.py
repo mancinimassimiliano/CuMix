@@ -65,9 +65,12 @@ class CuMix:
 
     # Init following the given config
     def __init__(self, seen_classes, unseen_classes, attributes, configs, zsl_only=False, dg_only=False,
-                 device='cuda', world_size=1, rank=0):
+                 device='cuda', world_info=None):
         self.end_to_end = True
         self.domain_mix = True
+        self.rank = world_info['rank']
+        self.world_size = world_info['world_size']
+        self.device_id = world_info['device_id']
 
         if configs['backbone'] == 'none':
             self.end_to_end = False
@@ -78,9 +81,8 @@ class CuMix:
             self.backbone = backbone(pretrained=True)
             self.backbone.fc = nn.Identity()
             self.lr_net=configs['lr_net']
-            if world_size>1:
+            if self.world_size>1:
                 self.backbone = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.backbone)
-            self.backbone.to(device)
             self.backbone.eval()
 
         self.zsl_only = zsl_only
@@ -90,8 +92,7 @@ class CuMix:
         self.seen_classes = seen_classes if not dg_only else torch.Tensor([0 for _ in range(seen_classes)])
         self.unseen_classes = unseen_classes
         self.attributes = attributes
-        self.rank = rank
-        self.world_size = world_size
+
 
         self.device = device
         
@@ -118,13 +119,11 @@ class CuMix:
             self.semantic_projector = nn.Identity()
             self.train_classifier = nn.Linear(input_dim, unseen_classes)
             self.train_classifier.apply(weights_init)
-            self.train_classifier = self.train_classifier.to(self.device)
             self.train_classifier.eval()
             self.final_classifier = self.train_classifier
         else:
             self.semantic_projector = nn.Linear(input_dim, attSize)
             self.semantic_projector.apply(weights_init)
-            self.semantic_projector = self.semantic_projector.to(self.device)
             self.semantic_projector.eval()
             self.train_classifier = UnitClassifier(self.attributes, seen_classes, self.device)
             self.train_classifier.eval()
@@ -144,6 +143,8 @@ class CuMix:
         self.current_epoch = -1
         self.dg_only = dg_only
 
+        self.to(device)
+
     # Create one hot labels
     def create_one_hot(self, y):
         y_onehot = torch.LongTensor(y.size(0), self.seen_classes.size(0)).to(self.device)
@@ -158,11 +159,12 @@ class CuMix:
         return self.semantic_projector.parameters()
 
     def save(self, dict):
-        dict['backbone'] = self.backbone.state_dict()
-        dict['semantic_projector'] = self.semantic_projector.state_dict()
-        dict['train_classifier'] = self.train_classifier.state_dict()
-        dict['final_classifier'] = self.final_classifier.state_dict()
-        dict['epoch'] = self.current_epoch
+        if self.rank==0:
+            dict['backbone'] = self.backbone.state_dict()
+            dict['semantic_projector'] = self.semantic_projector.state_dict()
+            dict['train_classifier'] = self.train_classifier.state_dict()
+            dict['final_classifier'] = self.final_classifier.state_dict()
+            dict['epoch'] = self.current_epoch
 
     def load(self, dict):
         self.backbone.load_state_dict(dict['backbone'])
@@ -177,7 +179,7 @@ class CuMix:
         except:
             self.current_epoch = 0
 
-    def to(self, device, parallel, id=0):
+    def to(self, device):
         self.backbone = self.backbone.to(device)
         self.semantic_projector = self.semantic_projector.to(device)
         self.train_classifier = self.train_classifier.to(device)
@@ -186,15 +188,14 @@ class CuMix:
         else:
             self.final_classifier = self.final_classifier.to(device)
 
-        if parallel:
-            self.backbone = DistributedDataParallel(self.backbone, device_ids=[id], output_device=id)
-            self.semantic_projector = DistributedDataParallel(self.semantic_projector, device_ids=[id],
-                                                              output_device=id)
-            self.train_classifier = DistributedDataParallel(self.train_classifier, device_ids=[id], output_device=id)
-            if self.dg_only:
-                self.final_classifier = self.train_classifier
-            else:
-                self.final_classifier = DistributedDataParallel(self.final_classifier, device_ids=[id], output_device=id)
+        self.backbone = DistributedDataParallel(self.backbone, device_ids=[self.device_id], output_device=self.device_id)
+        self.semantic_projector = DistributedDataParallel(self.semantic_projector, device_ids=[self.device_id],
+                                                              output_device=self.device_id)
+        self.train_classifier = DistributedDataParallel(self.train_classifier, device_ids=[self.device_id], output_device=self.device_id)
+        if self.dg_only:
+            self.final_classifier = self.train_classifier
+        else:
+            self.final_classifier = DistributedDataParallel(self.final_classifier, device_ids=[self.device_id], output_device=self.device_id)
 
         self.device = device
 
@@ -279,7 +280,8 @@ class CuMix:
                                 drop_last=True)
         else:
             dataloader = DataLoader(data, batch_size=self.batch_size, num_workers=0,
-                                    shuffle=True, drop_last=True)
+                                    sampler=DistributedSampler(data,num_replicas=self.world_size,
+                                                               rank=self.rank,shuffle=True), drop_last=True)
 
         # Init plus update optimizers
         scale_lr = 0.1 ** (self.current_epoch // self.step)
@@ -305,6 +307,7 @@ class CuMix:
         sem_loss = 0.
         mimg_loss = 0.
         mfeat_loss = 0.
+        i=0
 
         for i, (inputs, _, domains, labels) in enumerate(dataloader):
 
@@ -329,27 +332,33 @@ class CuMix:
 
             mfeat_loss += mixup_feature_loss.item()
 
-            # Forward + compute mixup loss on mixed inputs, in case of end-to-end training
-            # (skipped just for ZSL only exps)
-            if self.end_to_end:
-                mix_indeces, mix_ratios = self.get_mixup_sample_and_ratio(domains)
-                mixup_inputs, mixup_labels = self.get_mixed_input_labels(inputs,one_hot_labels, mix_indeces,mix_ratios.to(self.device),dims=4)
-                mixup_img_predictions = self.forward(mixup_inputs,return_features=False)
-                mixup_img_loss = self.mixup_criterion(mixup_img_predictions, mixup_labels)
-                total_loss = total_loss+self.mixup_w*mixup_img_loss
-                mimg_loss += mixup_img_loss.item()
-
             # Backward + update net
             self.zero_grad()
             total_loss.backward()
+            del total_loss
+
+            # Forward + compute mixup loss on mixed inputs, in case of end-to-end training
+            # (skipped just for ZSL only exps)
+            if self.end_to_end:
+                mix_indeces_img, mix_ratios_img = self.get_mixup_sample_and_ratio(domains)
+                mixup_inputs, mixup_labels_img = self.get_mixed_input_labels(inputs,one_hot_labels, mix_indeces_img,
+                                                                         mix_ratios_img.to(self.device),dims=4)
+                mixup_img_predictions = self.forward(mixup_inputs,return_features=False)
+                mixup_img_loss = self.mixup_criterion(mixup_img_predictions, mixup_labels_img)
+                (self.mixup_w*mixup_img_loss).backward()
+                mimg_loss += mixup_img_loss.item()
+                del mixup_img_loss
+
+
 
             if optimizer_net is not None:
                 optimizer_net.step()
             optimizer_zsl.step()
 
-            del total_loss
+
 
         self.eval()
+        i+=1
 
         return sem_loss/(i+1), mimg_loss/(i+1), mfeat_loss/(i+1)
 

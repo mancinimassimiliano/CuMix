@@ -36,7 +36,7 @@ distributed.init_process_group(backend='nccl', init_method='env://')
 device_id, device = args.local_rank, torch.device(args.local_rank)
 rank, world_size = distributed.get_rank(), distributed.get_world_size()
 torch.cuda.set_device(device_id)
-world_info = {'world_size':world_size, 'rank':rank}
+world_info = {'world_size': world_size, 'rank': rank, 'device_id': device_id}
 
 
 # Check association dataset--setting are correct + init remaining stuffs from configs
@@ -92,9 +92,7 @@ configs['multi_domain'] = multi_domain
 # Init loggers and checkpoints path
 log_dir = args.log_dir
 checkpoint_dir = args.ckpt_dir
-exp_name = args.name
 cudnn.benchmark = True
-
 
 exp_name=args.name+'.pkl'
 
@@ -141,7 +139,7 @@ for r in range(args.runs):
 
     # Init method
     method = CuMix(seen_classes=seen,unseen_classes=unseen,attributes=attributes,configs=configs,zsl_only = not args.dg,
-                   dg_only = not args.zsl,device=device,world_size=world_size,rank=rank)
+                   dg_only = not args.zsl,device=device,world_info=world_info)
 
     temp_results = []
     top_sources = 0.
@@ -164,6 +162,7 @@ for r in range(args.runs):
                 temp_results = accuracy
         else:
             temp_results = accuracy
+            print(accuracy)
 
         # Store losses
         logger['sem_loss'][r].append(semantic_loss)
